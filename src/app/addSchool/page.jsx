@@ -1,8 +1,26 @@
 "use client";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { isLoggedIn } from "@/utils/auth";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function AddSchool() {
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const logged = isLoggedIn();
+    setLoggedIn(logged);
+    setAuthChecked(true);
+
+    if (!logged) {
+      router.replace("/login");
+    }
+  }, [router]);
+
   const {
     register,
     handleSubmit,
@@ -11,39 +29,47 @@ export default function AddSchool() {
   } = useForm();
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
 
   const onSubmit = async (data) => {
     setLoading(true);
-    setMessage("");
 
     const formData = new FormData();
     for (let key in data) {
       if (key !== "image") {
-        // skip image here
         formData.append(key, data[key]);
       }
     }
-    formData.append("image", data.image[0]); // only append actual file
+    formData.append("image", data.image[0]);
 
-    const res = await fetch("/api/addSchool", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const res = await fetch("/api/addSchool", {
+        method: "POST",
+        body: formData,
+      });
 
-    const result = await res.json();
-    setLoading(false);
+      const result = await res.json();
+      setLoading(false);
 
-    if (res.ok) {
-      setMessage("School added successfully!");
-      reset();
-    } else {
-      setMessage(result.error || "Something went wrong");
+      if (res.ok) {
+        toast.success("✅ School added successfully!");
+        reset();
+      } else {
+        toast.error(result.error || "❌ Something went wrong");
+      }
+    } catch (err) {
+      setLoading(false);
+      toast.error("❌ Network or server error");
     }
   };
 
+  // Only render the form if login check is complete and user is logged in
+  if (!authChecked || !loggedIn) {
+    return <ToastContainer position="top-center" autoClose={2000} />;
+  }
+
   return (
     <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
+      <ToastContainer position="top-center" autoClose={2500} />
       <div className="card w-full max-w-xl bg-white shadow-xl border border-gray-200 rounded-xl p-6">
         <h1 className="text-3xl font-bold mb-6 text-center">
           Add School Information
@@ -159,7 +185,6 @@ export default function AddSchool() {
             )}
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
@@ -168,16 +193,6 @@ export default function AddSchool() {
             {loading ? "Adding..." : "Add School"}
           </button>
         </form>
-
-        {message && (
-          <p
-            className={`mt-4 text-center font-semibold ${
-              message.includes("success") ? "text-green-600" : "text-red-500"
-            }`}
-          >
-            {message}
-          </p>
-        )}
       </div>
     </div>
   );
